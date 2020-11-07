@@ -10,8 +10,10 @@ import org.apache.spark.sql.types.FloatType
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.types.LongType
 import java.net.URLDecoder
+
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.Encoders
+import org.apache.spark.sql.catalyst.dsl.expressions.{DslExpression, StringToAttributeConversionHelper}
 
 object Part1 {
   def main(args: Array[String]): Unit = {
@@ -19,7 +21,10 @@ object Part1 {
     var spark: SparkSession = null
     try {
       
-      spark = SparkSession.builder().appName("Flickr using dataframes").config("spark.master", "local[*]").getOrCreate()
+      spark = SparkSession.builder()
+        .appName("Flickr using dataframes")
+        .config("spark.master", "local[*]")
+        .getOrCreate()
 
       //   * Photo/video identifier
       //   * User NSID
@@ -77,8 +82,50 @@ object Part1 {
         .schema(customSchemaFlickrMeta)
         .load("flickrSample.txt")
         
-        // YOUR CODE HERE
-        
+      // YOUR CODE HERE
+      originalFlickrMeta.createOrReplaceTempView("originalSamples")
+
+      // 1. Using the Spark SQL API (accessible with spark.sql("...")), select fields containing the identifier, GPS
+      // coordinates, and type of license of each picture.
+      val samplesWithReducedColumns = spark
+        .sql("SELECT photo_id, longitude, latitude, license FROM originalSamples WHERE marker = 0")
+
+      // 2. Create a DataFrame containing only data of interesting pictures, i.e. pictures for which the license
+      // information is not null, and GPS coordinates are valid (not -1.0).
+      val interestingPictures = samplesWithReducedColumns
+        .filter("longitude <> -1.0 AND latitude <> -1.0 AND license <> ''")
+      interestingPictures.createOrReplaceTempView("interestingPictures")
+
+      // 3. Display the execution plan used by Spark to compute the content of this DataFrame(explain()).
+      interestingPictures.explain(true)
+
+      // 4. Display the data of this pictures (show()). Keep in mind that Spark uses lazy execution, so as long as we do
+      // not perform any action, the transformations are not executed.
+      interestingPictures.show(false)
+
+      // 5. Our goal is now to select the pictures whose license is NonDerivative. To this end we will use a second file
+      // containing the properties of each license. Load this file in a DataFrame and do a join operation to identify
+      // pictures that are both interesting and NonDerivative. Examine the execution plan and display the results.
+      val originalFlickrLicenseMeta = spark.read
+        .format("csv")
+        .option("delimiter", "\t")
+        .option("header", "true")
+        .load("FlickrLicense.txt")
+      originalFlickrLicenseMeta.createOrReplaceTempView("licenses")
+
+      val interestingAndNonDerivativeLicencedPictures = spark
+        .sql("SELECT interestingPictures.* FROM interestingPictures " +
+          "INNER JOIN licenses ON licenses.NonDerivative = 1 AND interestingPictures.license=licenses.name")
+
+      interestingAndNonDerivativeLicencedPictures.explain(true)
+      interestingAndNonDerivativeLicencedPictures.show(false)
+
+      // 6. During a work session, it is likely that we reuse multiple time the DataFrame of interesting pictures. I
+      // would be a good idea to cache it to avoid recomputing it from the file each time we use it. Do this, and
+      // examine the execution plan of the join operation again. What do you notice?
+
+      // 7. Save the final result in a csv file (write). Don’t forget to add a header to reuse it more easily.
+
     } catch {
       case e: Exception => throw e
     } finally {
