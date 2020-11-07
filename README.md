@@ -1,3 +1,1 @@
-# ceng790
-
-CENG 790 - Big Data Analytics
+# CENG790 - Big Data Analytics
