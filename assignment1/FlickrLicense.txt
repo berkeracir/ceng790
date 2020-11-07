@@ -1,0 +1,6 @@
+Name	Attribution	Noncommercial	NonDerivative	ShareAlike	PublicDomainDedication	PublicDomainWork
+Attribution License	1	0	0	0	0	0
+Attribution-NoDerivs License	1	0	1	0	0	0
+Attribution-NonCommercial-NoDerivs License	1	1	1	0	0	0
+Attribution-NonCommercial License	1	1	0	0	0	0	0
+Attribution-NonCommercial-ShareAlike License	1	1	0	1	0	0
