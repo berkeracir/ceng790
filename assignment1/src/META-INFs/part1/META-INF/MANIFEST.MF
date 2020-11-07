@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+Main-Class: edu.metu.ceng790.hw1.Part1
+
