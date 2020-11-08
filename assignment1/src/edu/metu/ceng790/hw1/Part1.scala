@@ -2,7 +2,7 @@ package edu.metu.ceng790.hw1
 
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Encoders, Row, SaveMode, SparkSession}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.types.ByteType
 import org.apache.spark.sql.types.StructField
@@ -11,9 +11,9 @@ import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.types.LongType
 import java.net.URLDecoder
 
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.catalyst.dsl.expressions.{DslExpression, StringToAttributeConversionHelper}
+
+import scala.tools.scalap.scalax.rules.scalasig.ClassFileParser.header
 
 object Part1 {
   def main(args: Array[String]): Unit = {
@@ -97,6 +97,7 @@ object Part1 {
       interestingPictures.createOrReplaceTempView("interestingPictures")
 
       // 3. Display the execution plan used by Spark to compute the content of this DataFrame(explain()).
+      println("### Explain Interesting Pictures DataFrame:\n")
       interestingPictures.explain(true)
 
       // 4. Display the data of this pictures (show()). Keep in mind that Spark uses lazy execution, so as long as we do
@@ -117,14 +118,26 @@ object Part1 {
         .sql("SELECT interestingPictures.* FROM interestingPictures " +
           "INNER JOIN licenses ON licenses.NonDerivative = 1 AND interestingPictures.license=licenses.name")
 
+      println("### Explain Interesting And NonDerivative Licensed Pictures DataFrame:\n")
       interestingAndNonDerivativeLicencedPictures.explain(true)
       interestingAndNonDerivativeLicencedPictures.show(false)
 
-      // 6. During a work session, it is likely that we reuse multiple time the DataFrame of interesting pictures. I
+      // 6. During a work session, it is likely that we reuse multiple time the DataFrame of interesting pictures. It
       // would be a good idea to cache it to avoid recomputing it from the file each time we use it. Do this, and
       // examine the execution plan of the join operation again. What do you notice?
+      interestingAndNonDerivativeLicencedPictures.cache()
+      println("### Explain Interesting And NonDerivative Licensed Pictures DataFrame after cached:\n")
+      interestingAndNonDerivativeLicencedPictures.explain(true)
 
       // 7. Save the final result in a csv file (write). Don’t forget to add a header to reuse it more easily.
+      interestingAndNonDerivativeLicencedPictures.coalesce(1).write
+        .mode(SaveMode.Overwrite)
+        .option("mapreduce.fileoutputcommitter.marksuccessfuljobs","false")
+        .option("delimiter", "\t")
+        .option("header", "true")
+        .csv("out")
+
+
 
     } catch {
       case e: Exception => throw e
