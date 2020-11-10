@@ -135,9 +135,7 @@ object Part1 {
         .option("mapreduce.fileoutputcommitter.marksuccessfuljobs","false")
         .option("delimiter", "\t")
         .option("header", "true")
-        .csv("out")
-
-
+        .csv("part1_out")
 
     } catch {
       case e: Exception => throw e
