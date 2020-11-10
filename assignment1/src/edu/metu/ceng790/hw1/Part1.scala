@@ -1,19 +1,13 @@
 package edu.metu.ceng790.hw1
 
-import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.{Encoders, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.types.ByteType
 import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.types.FloatType
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.types.LongType
-import java.net.URLDecoder
-
-import org.apache.spark.sql.catalyst.dsl.expressions.{DslExpression, StringToAttributeConversionHelper}
-
-import scala.tools.scalap.scalax.rules.scalasig.ClassFileParser.header
 
 object Part1 {
   def main(args: Array[String]): Unit = {
