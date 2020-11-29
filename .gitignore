@@ -2,3 +2,11 @@
 */out
 */.idea
 */*.iml
+
+# Assignment 1
+assignment1/part1_out
+
+# Assignment 2
+assignment2/checkpoints
+assignment2/models
+assignment2/ml-20m
