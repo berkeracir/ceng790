@@ -9,6 +9,7 @@ import org.apache.spark.rdd.RDD._
 import java.nio.file.Paths
 import java.nio.file.Files
 import java.io.PrintWriter
+
 import scala.math.pow
 
 // Part 1
@@ -17,7 +18,7 @@ object ParameterTuningALS {
   val modelsOutputDir: String = "models/"
   val modelsCheckpointDir: String = "checkpoints/"
   val reportsOutputDir: String = "reports/"
-  val reportFileName: String = "mseScores_%s.csv"
+  val reportFileName: String = "mseScores_%s.csv" //"mseScores_%s_custom.csv"
 
   def main(args: Array[String]): Unit = {
 
@@ -41,15 +42,32 @@ object ParameterTuningALS {
         .load("ml-20m/ratings.csv")
       originalRatings.printSchema()
 
-      // First, you need to load the dataset into the RDD Ratings.
+      // First, you need to load the dataset into the RDD Ratings. In order to get more accurate predictions, you should
+      // normalize the ratings. Rating normalizations types:
+      //   0) no normalization
+      //   1) normalize the ratings per user with avgRatingPerUser,
+      //   2) normalize the ratings to [0,1] by dividing the ratings with 5.
+
+      // No normalization (Normalization Type 0)
+      //val ratings = originalRatings.rdd
+      //  .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+      //val normalization : String = "Normalization0"
+
+      // Normalize the ratings per user with avgRatingPerUser. (Normalization Type 1)
+      val avgRatingPerUser = originalRatings.rdd
+        .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+        .map(r => (r.user, r.rating)).groupByKey().map(r => (r._1, r._2.sum/r._2.size))
       val ratings = originalRatings.rdd
         .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+        .map(r => (r.user, Rating(r.user, r.product, r.rating))).join(avgRatingPerUser)
+        .map{case (_, (Rating(u, p, r), userAvg)) => Rating(u, p, r/userAvg)}
+      val normalization : String = "Normalization1"
 
-      //TODO: In order to get more accurate predictions, you should normalize the ratings. Rating normalizations types:
-      // 0) no normalization
-      // 1) normalize the ratings per user with avgRatingPerUser,
-      // 2) normalize the ratings to [0,1] by dividing the ratings to 5.
-      val normalization : String = "Normalization0" // No normalization
+      // Normalize the ratings to [0,1] by dividing the ratings with 5. (Normalization Type 2)
+      //val ratings = originalRatings.rdd
+      //  .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+      //  .map(r => Rating(r.user, r.product, r.rating/5))
+      //val normalization : String = "Normalization2"
 
       // Split the data in train and test sets of sizes 8:2. The 80% of the data will be used for training and tuning
       // the parameters, the 20% of the data will be used for testing.
@@ -71,6 +89,8 @@ object ParameterTuningALS {
       // 12), 3 different lambdas (0.01, 1.0 and 10.0), and two different numbers of iterations (20 and 30). What are
       // the values for the best model? Store these values, you will need them for the next question.
       for (r <- ranks; i <- iterations; l <- lambdas) {
+      // For training with custom parameters
+      //for ((r, i, l) <- Array((16,30,0.01), (12,40,0.01), (12,30,0.1), (16,40,0.01), (24,40,0.01), (32,60,0.01))) {
         val p = new Parameter(r, i, l)
         val modelPath = modelsOutputDir + p.getShortDescription + normalization
 
