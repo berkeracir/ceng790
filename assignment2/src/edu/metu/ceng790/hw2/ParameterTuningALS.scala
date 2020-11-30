@@ -15,10 +15,10 @@ import scala.math.pow
 object ParameterTuningALS {
 
   // Indices of Field Names in ratings.csv
-  val indexUserId: Int = 0
-  val indexMovieId: Int = 1
-  val indexRating: Int = 2
-  val indexTimestamp: Int = 3
+  val indexUserId_ratings: Int = 0
+  val indexMovieId_ratings: Int = 1
+  val indexRating_ratings: Int = 2
+  val indexTimestamp_ratings: Int = 3
 
   val modelsOutputDir: String = "models/"
   val modelsCheckpointDir: String = "checkpoints/"
@@ -60,12 +60,12 @@ object ParameterTuningALS {
 
       // Normalize the ratings per user with avgRatingPerUser. (Normalization Type 1)
       val avgRatingPerUser = originalRatings.rdd
-        .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
+        .map(r => Rating(r.getInt(indexUserId_ratings), r.getInt(indexMovieId_ratings), r.getDouble(indexRating_ratings)))
         .map(r => (r.user, r.rating)).groupByKey().map(r => (r._1, r._2.sum/r._2.size))
       val ratings = originalRatings.rdd
-        .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
+        .map(r => Rating(r.getInt(indexUserId_ratings), r.getInt(indexMovieId_ratings), r.getDouble(indexRating_ratings)))
         .map(r => (r.user, Rating(r.user, r.product, r.rating))).join(avgRatingPerUser)
-        .map{case (_, (Rating(u, p, r), userAvg)) => Rating(u, p, r/userAvg)}
+        .map{ case (_, (Rating(u, p, r), userAvg)) => Rating(u, p, r/userAvg) }
       val normalization : String = "Normalization1"
 
       // Normalize the ratings to [0,1] by dividing the ratings with 5. (Normalization Type 2)
@@ -117,7 +117,7 @@ object ParameterTuningALS {
         val predictionTestRatings = model.predict(testUsersAndMovies).map(r => ((r.user, r.product), r.rating))
         val validationAndPredictionTestRatings = validationTestRatings.join(predictionTestRatings)
         val meanSquareError = validationAndPredictionTestRatings
-          .map{case (_, (rating, prediction)) => pow(rating - prediction, 2)}.mean()
+          .map{ case (_, (rating, prediction)) => pow(rating - prediction, 2) }.mean()
 
         println("MSE for ALS Model with %s is %f.\n".format(p.toString, meanSquareError))
         reportFile.write("%d %d %.2f %f\n".format(p.rank, p.iteration, p.lambda, meanSquareError))
