@@ -9,11 +9,16 @@ import org.apache.spark.rdd.RDD._
 import java.nio.file.Paths
 import java.nio.file.Files
 import java.io.PrintWriter
-
 import scala.math.pow
 
-// Part 1
+// Part 1 - Collaborative Filtering
 object ParameterTuningALS {
+
+  // Indices of Field Names in ratings.csv
+  val indexUserId: Int = 0
+  val indexMovieId: Int = 1
+  val indexRating: Int = 2
+  val indexTimestamp: Int = 3
 
   val modelsOutputDir: String = "models/"
   val modelsCheckpointDir: String = "checkpoints/"
@@ -50,22 +55,22 @@ object ParameterTuningALS {
 
       // No normalization (Normalization Type 0)
       //val ratings = originalRatings.rdd
-      //  .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+      //  .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
       //val normalization : String = "Normalization0"
 
       // Normalize the ratings per user with avgRatingPerUser. (Normalization Type 1)
       val avgRatingPerUser = originalRatings.rdd
-        .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+        .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
         .map(r => (r.user, r.rating)).groupByKey().map(r => (r._1, r._2.sum/r._2.size))
       val ratings = originalRatings.rdd
-        .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+        .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
         .map(r => (r.user, Rating(r.user, r.product, r.rating))).join(avgRatingPerUser)
         .map{case (_, (Rating(u, p, r), userAvg)) => Rating(u, p, r/userAvg)}
       val normalization : String = "Normalization1"
 
       // Normalize the ratings to [0,1] by dividing the ratings with 5. (Normalization Type 2)
       //val ratings = originalRatings.rdd
-      //  .map(r => Rating(r.getAs("userId"), r.getAs("movieId"), r.getAs("rating")))
+      //  .map(r => Rating(r.getInt(indexUserId), r.getInt(indexMovieId), r.getDouble(indexRating)))
       //  .map(r => Rating(r.user, r.product, r.rating/5))
       //val normalization : String = "Normalization2"
 
