@@ -6,12 +6,17 @@ import org.apache.spark.mllib.recommendation.Rating
 import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
 import org.apache.spark.rdd.RDD._
+
 import java.nio.file.Paths
 import java.nio.file.Files
 import java.io.PrintWriter
+
 import scala.math.pow
 
 // Part 1 - Collaborative Filtering
+// Collaborative filtering recommender systems rely on user ratings to predict unknown ratings. For this part, we will
+// use a method of the Matrix Factorization family called ALS that was presented in class. ALS is available in Spark
+// through the mllib library.
 object ParameterTuningALS {
 
   // Indices of Field Names in ratings.csv
@@ -37,8 +42,7 @@ object ParameterTuningALS {
       sc = spark.sparkContext
       sc.setCheckpointDir(modelsCheckpointDir)
 
-      // Inferring the schema can be commented out as it requires reading the data one more time. In that case String to
-      // Int and Double conversions should be made for the userId, movieId and rating fields' values.
+      // Inferring the schema can be commented out as it requires reading the data one more time.
       val originalRatings = spark.read
         .format("csv")
         .option("inferSchema", "true")
