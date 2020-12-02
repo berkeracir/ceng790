@@ -1,16 +1,16 @@
 package edu.metu.ceng790.hw2
 
 import edu.metu.ceng790.hw2.ParameterTuningALS._
+
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.recommendation._
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.rdd.RDD
+
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.io.File
-
-import org.apache.spark.rdd.RDD
-import org.json4s.JsonDSL.int2jvalue
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Random.shuffle
@@ -18,6 +18,10 @@ import scala.io.StdIn.readLine
 import scala.reflect.io.Directory
 
 // Part 1 - Collaborative Filtering
+// Now that you have experimented with ALS, you know which parameters should be used to configure the algorithm. Create
+// another file named CollabFiltering.scala. Our objective now is to go beyond aggregated performance measures such as
+// MSE, and see if you would be satisfied by the recommendations of the system you just built. To do this, you need to
+// add you as a user in the dataset.
 object CollabFiltering {
 
   // Indices of Field Names in movies.csv
@@ -44,7 +48,7 @@ object CollabFiltering {
         .config("spark.master", "local[*]")
         .getOrCreate()
       sc = spark.sparkContext
-      sc.setCheckpointDir(ParameterTuningALS.modelsCheckpointDir)
+      sc.setCheckpointDir(modelsCheckpointDir)
 
       var rateAgain: String = ""
       // If User Ratings File and Related Matrix Factorization Model exists, ask the user whether he/she want to rate
@@ -70,6 +74,7 @@ object CollabFiltering {
         .option("delimiter", ",")
         .option("header", "true")
         .load("ml-20m/movies.csv")
+      println("Schema of movies.csv:")
       originalMovies.printSchema()
 
       // 2. Build the movies Map[Int,String] that associates a movie identifier to the movie title. This data is
@@ -88,10 +93,11 @@ object CollabFiltering {
           .option("delimiter", ",")
           .option("header", "true")
           .load("ml-20m/ratings.csv")
+        println("Schema of ratings.csv:")
         originalRatings.printSchema()
 
         val movieRatings = originalRatings.rdd
-          .map(r => (r.getInt(ParameterTuningALS.indexMovieId_ratings), r.getDouble(ParameterTuningALS.indexRating_ratings)))
+          .map(r => (r.getInt(indexMovieId_ratings), r.getDouble(indexRating_ratings)))
 
         // 3. Build mostRatedMovies that contains the 100 movies that were rated by the most users. This is very similar
         // to word-count, and finding the most frequent words in a document.
@@ -150,12 +156,16 @@ object CollabFiltering {
         model.save(sc, modelPath)
         println("ALS Model with %s is saved to \"%s\".".format(modelParameters.toString, modelPath))
       } else {  // Load the user ratings and the existing model for the user
-        userInputRatings = spark.read
+        val inputRatings = spark.read
           .format("csv")
           .option("inferSchema", "true")
           .option("delimiter", ",")
           .option("header", "true")
-          .load(recommendationsDir + userInputRatingsFileName).rdd
+          .load(recommendationsDir + userInputRatingsFileName)
+        println("Schema of %s:".format(userInputRatingsFileName))
+        inputRatings.printSchema()
+
+        userInputRatings = inputRatings.rdd
           .map(r => (r.getInt(indexMovieId_userInputRatings), r.getString(indexTitle_userInputRatings), r.getInt(indexRating_userInputRatings)))
 
         model = MatrixFactorizationModel.load(sc, modelPath)
@@ -170,7 +180,7 @@ object CollabFiltering {
         .map(r => (r.product, r.rating))
         .join(movies)
         .map{ case (movieId, (_, title)) => (movieId, title) }
-        .subtract(userInputMoviesWithTitles)  // Subtract the rated movies from the recommendation list
+        .subtract(userInputMoviesWithTitles)  // Subtract the rated movies by the user from the recommendation list
 
       var index: Int = 1
       println("Top 20 Recommendations:")

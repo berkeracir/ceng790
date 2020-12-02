@@ -49,6 +49,7 @@ object ParameterTuningALS {
         .option("delimiter", ",")
         .option("header", "true")
         .load("ml-20m/ratings.csv")
+      println("Schema of ratings.csv:")
       originalRatings.printSchema()
 
       // First, you need to load the dataset into the RDD Ratings. In order to get more accurate predictions, you should
