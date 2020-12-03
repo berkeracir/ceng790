@@ -195,6 +195,8 @@ object CollabFiltering {
     }
   }
 
+  // getRatings(selectedMovies) function gives you 25 movies to rate and you can answer directly in the console
+  // in the Scala IDE. Give a rating from 1 to 5, or 0 if you do not know this movie.
   def getRatings(selectedMovies: List[(Int, String)]): List[(Int, String, Int)] = {
     var userRatings = new ListBuffer[(Int, String, Int)]()
     println("Please, rate the following movies in the scale of 1 to 5. " +
