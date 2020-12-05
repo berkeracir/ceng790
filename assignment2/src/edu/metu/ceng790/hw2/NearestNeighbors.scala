@@ -113,7 +113,7 @@ object NearestNeighbors {
 
       val similarUsers = knn(userVector, userVectors)
       //val goodRatingsOfSimilarUsers = goodRatings.filter{ case (userId, _, _) => similarUsers.contains(userId) }
-      val ratingsOfSimilarUsers = ratings.map(r => (r.user, r.product, r.rating) )  // Instead of good ratings! TODO
+      val ratingsOfSimilarUsers = ratings.map(r => (r.user, r.product, r.rating) )  // All of the user ratings instead of only good ratings
         .filter{ case (userId, _, _) => similarUsers.contains(userId) }
         .filter{ case (_, movieId, _) => !userInputMovies.contains(movieId) }
         .map{ case (_, movieId, rating) => (movieId, rating) }
@@ -122,8 +122,8 @@ object NearestNeighbors {
         .sortBy({ case (_, _, avgRating) => avgRating }, ascending = false)
 
       var index: Int = 1
-      println("Top 20 Recommendations:")
-      ratingsOfSimilarUsers.take(20).foreach {
+      println("Top %d Recommendations:".format(countOfRecommendedMovies))
+      ratingsOfSimilarUsers.take(countOfRecommendedMovies).foreach {
         case (_, title, _) => println("%d. %s".format(index, title))
           index = index + 1
       }

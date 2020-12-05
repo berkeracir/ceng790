@@ -34,9 +34,13 @@ object CollabFiltering {
   val indexTitle_userInputRatings: Int = 1
   val indexRating_userInputRatings: Int = 2
 
-  val recommendationsDir = "recommendations/"
-  val userInputRatingsFileName = "userInputRatings.csv"
-  val modelParameters = new Parameter(32, 60, 0.01)
+  val recommendationsDir: String = "recommendations/"
+  val userInputRatingsFileName: String = "userInputRatings.csv"
+  val modelParameters: Parameter = new Parameter(32, 60, 0.01)
+
+  val countOfTopMovies: Int = 100
+  val countOfTopMoviesToBeRatedByTheUser: Int = 25 // countOfTopMoviesToBeRatedByTheUser <= countOfTopMovies
+  val countOfRecommendedMovies: Int = 20
 
   def main(args: Array[String]): Unit = {
 
@@ -56,7 +60,6 @@ object CollabFiltering {
       // the existing model.
       if (Files.exists(Paths.get(recommendationsDir + userInputRatingsFileName))
         && Files.exists(Paths.get(recommendationsDir + modelParameters.getShortDescription))) {
-
         while (!rateAgain.equalsIgnoreCase("Y") && !rateAgain.equalsIgnoreCase("N")) {
           rateAgain = readLine("Do you want to rate movies again? (Y/N): ")
         }
@@ -83,7 +86,7 @@ object CollabFiltering {
       // will not know about them. Instead, you will select the 100 most famous movies and rate 25 among them.
       val movies = originalMovies.rdd
         .map(r => (r.getInt(indexMovieId_movies), r.getString(indexTitle_movies)))
-      //  .collectAsMap()
+        .collectAsMap()
 
       // Get user ratings from the user and, train and save a new model for the user
       if (rateAgain.equalsIgnoreCase("Y")) {
@@ -101,18 +104,18 @@ object CollabFiltering {
 
         // 3. Build mostRatedMovies that contains the 100 movies that were rated by the most users. This is very similar
         // to word-count, and finding the most frequent words in a document.
-        val moviesAndRatingCounts = movieRatings.groupByKey()
-          .map{ case (movieId, mRatings) => (movieId, mRatings.size) }
-        val mostRatedMovies = movies.join(moviesAndRatingCounts)
-          .map{ case (movieId,(title, count)) => (movieId, title, count) }
+        val moviesWithTitleAndRatingCounts = movieRatings.groupByKey()
+          .map{ case (movieId, mRatings) => (movieId, movies.get(movieId).get, mRatings.size) }
+        val mostRatedMovies = moviesWithTitleAndRatingCounts
           .sortBy({ case (_, _, count) => count }, ascending = false)
           .map{ case (movieId, title, _) => (movieId, title)}
+          .take(countOfTopMovies).toList
 
         // Obtain selectedMovies List[(Int, String)] that contains 25 movies selected at random in mostRatedMovies as
         // well as their title. To select elements at random in a list, a good strategy is to shuffle the list (i.e. put
         // it in a random order) and take the first elements. Shuffling the list can be done with
         // scala.util.Random.shuffle.
-        val selectedMovies = shuffle(mostRatedMovies.take(100).toList).take(25)
+        val selectedMovies = shuffle(mostRatedMovies).take(countOfTopMoviesToBeRatedByTheUser)
 
         // 4. You can now use your recommender system by executing the program you wrote! Write a function
         // getRatings(selectedMovies) gives you 25 movies to rate and you can answer directly in the console in the
@@ -155,7 +158,7 @@ object CollabFiltering {
         }
         model.save(sc, modelPath)
         println("ALS Model with %s is saved to \"%s\".".format(modelParameters.toString, modelPath))
-      } else {  // Load the user ratings and the existing model for the user
+      } else {  // User doesn't want to rate the movies again, load the user ratings and the trained model for the user
         val inputRatings = spark.read
           .format("csv")
           .option("inferSchema", "true")
@@ -176,15 +179,13 @@ object CollabFiltering {
       // recommendations, are you happy about your recommendations? Comment.
       val userInputMoviesWithTitles = userInputRatings.map{ case (movieId, title, _) => (movieId, title)}
       val countOfUserInputs = userInputMoviesWithTitles.count().toInt
-      val recommendations = sc.parallelize(model.recommendProducts(0, 20 + countOfUserInputs))
-        .map(r => (r.product, r.rating))
-        .join(movies)
-        .map{ case (movieId, (_, title)) => (movieId, title) }
-        .subtract(userInputMoviesWithTitles)  // Subtract the rated movies by the user from the recommendation list
+      val recommendations = sc.parallelize(model.recommendProducts(0, countOfRecommendedMovies + countOfUserInputs))
+        .map(r => (r.product, movies.get(r.product).get))
+        .subtract(userInputMoviesWithTitles)  // Subtract the already rated movies by the user from the recommendation list
 
       var index: Int = 1
-      println("Top 20 Recommendations:")
-      recommendations.take(20).foreach{
+      println("Top %d Recommendations:".format(countOfRecommendedMovies))
+      recommendations.take(countOfRecommendedMovies).foreach{
         case (_, title) => println("%d. %s".format(index, title))
         index = index + 1
       }
@@ -195,8 +196,8 @@ object CollabFiltering {
     }
   }
 
-  // getRatings(selectedMovies) function gives you 25 movies to rate and you can answer directly in the console
-  // in the Scala IDE. Give a rating from 1 to 5, or 0 if you do not know this movie.
+  // getRatings(selectedMovies) function gives you 25 movies to rate and you can answer directly in the console in the
+  // Scala IDE. Give a rating from 1 to 5, or 0 if you do not know this movie.
   def getRatings(selectedMovies: List[(Int, String)]): List[(Int, String, Int)] = {
     var userRatings = new ListBuffer[(Int, String, Int)]()
     println("Please, rate the following movies in the scale of 1 to 5. " +
