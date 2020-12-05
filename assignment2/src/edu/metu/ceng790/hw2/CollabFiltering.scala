@@ -183,8 +183,11 @@ object CollabFiltering {
         .map(r => (r.product, movies.get(r.product).get))
         .subtract(userInputMoviesWithTitles)  // Subtract the already rated movies by the user from the recommendation list
 
+      println("User's Movie Ratings:")
+      userInputRatings.foreach(r => println("%s: %d".format(r._2, r._3)))
+
       var index: Int = 1
-      println("Top %d Recommendations:".format(countOfRecommendedMovies))
+      println("\nTop %d Recommendations:".format(countOfRecommendedMovies))
       recommendations.take(countOfRecommendedMovies).foreach{
         case (_, title) => println("%d. %s".format(index, title))
         index = index + 1

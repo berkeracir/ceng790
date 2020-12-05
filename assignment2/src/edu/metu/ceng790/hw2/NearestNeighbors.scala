@@ -15,7 +15,7 @@ import org.apache.spark.sql.SparkSession
 // similar using those vectors and cosine similarity to obtain a recommendation.
 object NearestNeighbors {
 
-  val k_NearestNeighbors: Int = 20
+  val k_NearestNeighbors: Int = 5
 
   def main(args: Array[String]): Unit = {
 
@@ -105,13 +105,13 @@ object NearestNeighbors {
 
       val userInputAverageRating = userInputRatings.map(r => (r._3)).mean()
       val userInputGoodRatings = userInputRatings.filter(r => r._3 >= userInputAverageRating)
-      val userVector = (0, userInputGoodRatings.map{ case (movieId, _, _) => (movieGenres.get(movieId).get) }
+      val testUserVector = (0, userInputGoodRatings.map{ case (movieId, _, _) => (movieGenres.get(movieId).get) }
         .flatMap(r => r)
         .map(r => (r, 1))
         .reduceByKey(_ + _)
         .collect().toMap)
 
-      val similarUsers = knn(userVector, userVectors)
+      val similarUsers = knn(testUserVector, userVectors)
       //val goodRatingsOfSimilarUsers = goodRatings.filter{ case (userId, _, _) => similarUsers.contains(userId) }
       val ratingsOfSimilarUsers = ratings.map(r => (r.user, r.product, r.rating) )  // All of the user ratings instead of only good ratings
         .filter{ case (userId, _, _) => similarUsers.contains(userId) }
@@ -121,12 +121,21 @@ object NearestNeighbors {
         .map{ case (movieId, movieRatings) => (movieId, movieNames.get(movieId).get, movieRatings.sum/movieRatings.size) }
         .sortBy({ case (_, _, avgRating) => avgRating }, ascending = false)
 
+      println("Test User's Movie Ratings:")
+      userInputRatings.foreach(r => println("%s: %d".format(r._2, r._3)))
+      println("Test User's Vector: %s".format(testUserVector._2.toList.sortBy(r => r._2).reverse.mkString(", ")))
+
       var index: Int = 1
-      println("Top %d Recommendations:".format(countOfRecommendedMovies))
+      println("\nTop %d Recommendations:".format(countOfRecommendedMovies))
       ratingsOfSimilarUsers.take(countOfRecommendedMovies).foreach {
         case (_, title, _) => println("%d. %s".format(index, title))
           index = index + 1
       }
+
+      // 6. Congratulations, you can now experiment with your recommender system by modifying the vector of testUser and
+      // see which recommendations you get. Use the profile you built for yourself in Part 1 and list the
+      // recommendations. Comment on the performance of recommendations. Also, compare the two methods you implemented
+      // in Part 1 and 2.
     } catch {
       case e: Exception => throw e
     } finally {
@@ -169,8 +178,8 @@ object NearestNeighbors {
     dotProduct / (Math.sqrt(sumSquares1) * Math.sqrt(sumSquares2))
   }
 
-  // knn function that takes a user profile named testUser. Then, the function selects the list of k
-  // users that are most similar to the testUser, and returns recommendation, the list of movies recommended to the user.
+  // knn function that takes a user profile named testUser. Then, the function selects the list of k users that are most
+  // similar to the testUser, and returns recommendation, the list of movies recommended to the user.
   def knn(testUser: (Int, Map[String, Int]), userVectors: RDD[(Int, Map[String, Int])]): Array[Int] = {
     val testUserId = testUser._1
     val testUserVector = testUser._2
