@@ -9,6 +9,9 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql._
 
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.Vectors
+
 
 object Credit {
   // define the Credit Schema
@@ -42,9 +45,25 @@ object Credit {
 
     import sqlContext.implicits._
     // load the data into a  RDD
-    val creditDF = parseRDD(sc.textFile("credit.csv")).map(parseCredit).toDF().cache()
-    println(creditDF.count())
-   
+    val creditDF = parseRDD(sc.textFile("credit.csv")).map(parseCredit)
+      .toDF("creditability", "balance", "duration", "history", "purpose", "amount", "savings", "employment",
+        "instPercent", "sexMarried", "guarantors", "residenceDuration", "assets", "age", "concCredit", "apartment",
+        "credits", "occupation", "dependents", "hasPhone", "foreign")
+
+    // 1. Use a VectorAssembler to transform and return a new dataframe with all of the feature columns in a vector
+    // column.
+    val labelColName = "creditability"
+    val featureColNames = creditDF.columns.filter(colName => !colName.equals(labelColName))
+    val featureColName = "features"
+
+    val creditDFWithFeatureVector = new VectorAssembler()
+      .setInputCols(featureColNames)
+      .setOutputCol(featureColName)
+      .transform(creditDF).cache()
+
+    val featureVectorDF = creditDFWithFeatureVector.select(featureColName).cache()
+
+    // 2. Use a StringIndexer to return a Dataframe with the creditability column added as a label
   }
 }
 
