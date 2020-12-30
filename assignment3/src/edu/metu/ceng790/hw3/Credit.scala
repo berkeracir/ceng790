@@ -14,6 +14,8 @@ import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
 
 object Credit {
+  val MODEL_PATH = "model"
+
   // define the Credit Schema
   case class Credit(
     creditability: Double,
@@ -95,21 +97,26 @@ object Credit {
       .setFeaturesCol(featureColumnName)
       .setLabelCol(labelColumnName)
       .setSeed(4321)
-      .setMaxMemoryInMB(8*1024)
-//    println("EXPLAIN RANDOM FOREST CLASSIFIER")
-//    println(randomForestClassifier.explainParams()) // TODO REPORT
-//    println()
 
     // Use the ParamGridBuilder utility to construct the parameter grid with the following values: maxBins [24, 28, 32],
     // maxDepth, [3, 5, 7], impurity [“entropy", "gini"]
     val paramGridBuilder = new ParamGridBuilder()
-      .addGrid(randomForestClassifier.featureSubsetStrategy, Array("auto")  ++ Array("all", "onethird", "sqrt", "log2"))
+      .addGrid(randomForestClassifier.featureSubsetStrategy, Array("auto"))
       .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
-      .addGrid(randomForestClassifier.maxBins, Array(24, 28, 32) ++ Array(34, 36, 38, 40))
+      .addGrid(randomForestClassifier.maxBins, Array(24, 28, 32))
+      .addGrid(randomForestClassifier.maxDepth, Array(3, 5, 7))
+      .build()
+
+    // Additional ParamGridBuilders
+    val extraParamGridBuilder = new ParamGridBuilder()
+      .addGrid(randomForestClassifier.featureSubsetStrategy, Array("auto") ++ Array("all", "onethird", "sqrt", "log2"))
+      .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
+      .addGrid(randomForestClassifier.maxBins, Array(24, 28, 32) ++ Array(12, 16, 20) ++ Array(36, 40))
       .addGrid(randomForestClassifier.maxDepth, Array(3, 5, 7) ++ Array(2, 4, 6, 8, 9, 10))
-      .addGrid(randomForestClassifier.numTrees, Array(4, 8, 12, 16, 20, 24, 28, 32))
+      .addGrid(randomForestClassifier.numTrees, Array(20, 24, 28, 32))
       .addGrid(randomForestClassifier.subsamplingRate, Array(0.1, 0.25, 0.5, 0.75, 1.0))
       .build()
+
 
     // 5. Next, you will create and set up a pipeline to make things easier. A Pipeline consists of a sequence of
     // stages, each of which is either an Estimator or a Transformer.
@@ -121,13 +128,6 @@ object Credit {
     // to evaluate the result on the test set.
     val binaryClassificationEvaluator = new BinaryClassificationEvaluator()
       .setLabelCol(labelColumnName)
-//    println("EXPLAIN BINARY CLASSIFICATION EVALUATOR")
-//    println(binaryClassificationEvaluator.explainParams()) // TODO REPORT
-//    println()
-    val labelConverter = new IndexToString()
-      .setInputCol("prediction")
-      .setOutputCol("predictedLabel")
-      .setLabels(labelIndexer.labels)
 
     // The TrainValidationSplit uses an Estimator, a set of ParamMaps, and an Evaluator. Estimator should be your random
     // forest model, the ParamMaps is the parameter grid that you built in the previous step. The Evaluator should be
@@ -138,24 +138,29 @@ object Credit {
       .setEvaluator(binaryClassificationEvaluator)
       .setTrainRatio(0.75)
       .setSeed(4321)
-//    println("EXPLAIN TRAIN VALIDATION SPLIT")
-//    println(trainValidationSplit.explainParams()) // TODO REPORT
 
     val pipeline = new Pipeline()
-      .setStages(Array(featuresAssembler, labelIndexer, trainValidationSplit, labelConverter))
+      .setStages(Array(featuresAssembler, labelIndexer, trainValidationSplit))
 
     val model = pipeline.fit(trainCreditDF)
-    val bestModel = model.stages(2).asInstanceOf[TrainValidationSplitModel].bestModel
-    println(bestModel.explainParams())
+    model.write.overwrite().save(MODEL_PATH)
 
     // 6. Finally, evaluate the pipeline best-fitted model by comparing test predictions with test labels. You can use
     // transform function to get the predictions for test dataset. You can use evaluator’s evaluate function to get the
     // metrics.
-    val predictions = model.transform(testCreditDF)
+    val bestModel = model.stages(2).asInstanceOf[TrainValidationSplitModel]
+      .bestModel.asInstanceOf[RandomForestClassificationModel]
+    val impurity = bestModel.getImpurity
+    val maxBins = bestModel.getMaxBins
+    val maxDepth = bestModel.getMaxDepth
+    println(s"Model's Parameters => Impurity:$impurity, MaxBins:$maxBins, MaxDepth:$maxDepth")
 
-    val evaluateResult = binaryClassificationEvaluator.evaluate(predictions)
-    println(s"Evaluation: ${binaryClassificationEvaluator.evaluate(model.transform(trainCreditDF))} - ${binaryClassificationEvaluator.evaluate(model.transform(testCreditDF))}")
+    val trainPredictions = model.transform(trainCreditDF)
+    val testPredictions = model.transform(testCreditDF)
 
+    val trainResult = binaryClassificationEvaluator.evaluate(trainPredictions)
+    val testResult = binaryClassificationEvaluator.evaluate(testPredictions)
+    println(s"Model's Accuracies on =>  Train Data:$trainResult, Test Data:$testResult")
   }
 }
 
