@@ -41,9 +41,9 @@ object Credit {
 
   def main(args: Array[String]) {
 
-        val spark = SparkSession.builder.appName("Spark SQL").config("spark.master", "local[*]").getOrCreate()
-				val sc = spark.sparkContext
-				val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+    val spark = SparkSession.builder.appName("Spark SQL").config("spark.master", "local[*]").getOrCreate()
+    val sc = spark.sparkContext
+    val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
     import sqlContext.implicits._
     // load the data into a  RDD
@@ -58,13 +58,14 @@ object Credit {
     // column.
     val featureColumnNames = creditDF.columns.filter(colName => !colName.equals("creditability"))
     val featureColumnName = "features"
-    val labelColumnName = "label"
 
     val featuresAssembler = new VectorAssembler()
       .setInputCols(featureColumnNames)
       .setOutputCol(featureColumnName)
 
     // 2. Use a StringIndexer to return a Dataframe with the creditability column added as a label
+    val labelColumnName = "label"
+
     val labelIndexer = new StringIndexer()
       .setInputCol("creditability")
       .setOutputCol(labelColumnName)
@@ -96,7 +97,6 @@ object Credit {
     val randomForestClassifier = new RandomForestClassifier()
       .setFeaturesCol(featureColumnName)
       .setLabelCol(labelColumnName)
-      .setSeed(4321)
 
     // Use the ParamGridBuilder utility to construct the parameter grid with the following values: maxBins [24, 28, 32],
     // maxDepth, [3, 5, 7], impurity [“entropy", "gini"]
@@ -145,16 +145,16 @@ object Credit {
     val model = pipeline.fit(trainCreditDF)
     model.write.overwrite().save(MODEL_PATH)
 
-    // 6. Finally, evaluate the pipeline best-fitted model by comparing test predictions with test labels. You can use
-    // transform function to get the predictions for test dataset. You can use evaluator’s evaluate function to get the
-    // metrics.
     val bestModel = model.stages(2).asInstanceOf[TrainValidationSplitModel]
       .bestModel.asInstanceOf[RandomForestClassificationModel]
     val impurity = bestModel.getImpurity
     val maxBins = bestModel.getMaxBins
     val maxDepth = bestModel.getMaxDepth
-    println(s"Model's Parameters => Impurity:$impurity, MaxBins:$maxBins, MaxDepth:$maxDepth")
+    println(s"""Model's Parameters => Impurity:\"$impurity\", MaxBins:$maxBins, MaxDepth:$maxDepth""")
 
+    // 6. Finally, evaluate the pipeline best-fitted model by comparing test predictions with test labels. You can use
+    // transform function to get the predictions for test dataset. You can use evaluator’s evaluate function to get the
+    // metrics.
     val trainPredictions = model.transform(trainCreditDF)
     val testPredictions = model.transform(testCreditDF)
 
