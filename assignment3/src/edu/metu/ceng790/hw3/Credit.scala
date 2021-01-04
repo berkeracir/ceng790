@@ -144,7 +144,7 @@ object Credit {
       .setEstimator(randomForestClassifier)
       .setEstimatorParamMaps(paramGridBuilder)
       .setEvaluator(binaryClassificationEvaluator)
-      .setNumFolds(10)
+      .setNumFolds(2)
       .setSeed(4321)
 
     val pipeline = new Pipeline()
