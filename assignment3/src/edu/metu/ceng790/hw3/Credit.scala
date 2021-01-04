@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql._
 import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.classification.{RandomForestClassificationModel, RandomForestClassifier}
-import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit, TrainValidationSplitModel}
+import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder, TrainValidationSplit, TrainValidationSplitModel}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
@@ -111,7 +111,7 @@ object Credit {
     val extraParamGridBuilder = new ParamGridBuilder()
       .addGrid(randomForestClassifier.featureSubsetStrategy, Array("auto") ++ Array("all", "onethird", "sqrt", "log2"))
       .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
-      .addGrid(randomForestClassifier.maxBins, Array(24, 28, 32) ++ Array(12, 16, 20) ++ Array(36, 40))
+      .addGrid(randomForestClassifier.maxBins, Array(24, 28, 32) ++ Array(12, 16, 20, 36, 40))
       .addGrid(randomForestClassifier.maxDepth, Array(3, 5, 7) ++ Array(2, 4, 6, 8, 9, 10))
       .addGrid(randomForestClassifier.numTrees, Array(20, 24, 28, 32))
       .addGrid(randomForestClassifier.subsamplingRate, Array(0.1, 0.25, 0.5, 0.75, 1.0))
@@ -139,18 +139,34 @@ object Credit {
       .setTrainRatio(0.75)
       .setSeed(4321)
 
+    // Try CrossValidator
+    val crossValidator = new CrossValidator()
+      .setEstimator(randomForestClassifier)
+      .setEstimatorParamMaps(paramGridBuilder)
+      .setEvaluator(binaryClassificationEvaluator)
+      .setNumFolds(10)
+      .setSeed(4321)
+
     val pipeline = new Pipeline()
       .setStages(Array(featuresAssembler, labelIndexer, trainValidationSplit))
+    //val pipeline = new Pipeline()
+    //  .setStages(Array(featuresAssembler, labelIndexer, crossValidator))
 
     val model = pipeline.fit(trainCreditDF)
     model.write.overwrite().save(MODEL_PATH)
 
     val bestModel = model.stages(2).asInstanceOf[TrainValidationSplitModel]
       .bestModel.asInstanceOf[RandomForestClassificationModel]
+    //val bestModel = model.stages(2).asInstanceOf[CrossValidatorModel]
+    //  .bestModel.asInstanceOf[RandomForestClassificationModel]
     val impurity = bestModel.getImpurity
     val maxBins = bestModel.getMaxBins
     val maxDepth = bestModel.getMaxDepth
     println(s"""Model's Parameters => Impurity:\"$impurity\", MaxBins:$maxBins, MaxDepth:$maxDepth""")
+//    val featureSubsetStrategy = bestModel.getFeatureSubsetStrategy
+//    val numTrees = bestModel.getNumTrees
+//    val subsamplingRate = bestModel.getSubsamplingRate
+//    println(s"""Model's Parameters => FeatureSubsetStrategy:\"$featureSubsetStrategy\", Impurity:\"$impurity\" MaxBins:$maxBins, MaxDepth:$maxDepth, NumTrees:$numTrees, SubsamplingRate:$subsamplingRate""")
 
     // 6. Finally, evaluate the pipeline best-fitted model by comparing test predictions with test labels. You can use
     // transform function to get the predictions for test dataset. You can use evaluator’s evaluate function to get the
