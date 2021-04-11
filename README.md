@@ -13,3 +13,7 @@
 - Part 2: Content-based Nearest Neighbors
 
 ## Assignment 3: Random Forest Classifier
+
+- Part 1: Extract Features
+
+- Part 2: Train The Model And Optimize Hyperparameters
